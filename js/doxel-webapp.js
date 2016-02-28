@@ -390,8 +390,13 @@ var views={
                 return;
               }
 
-              window.top.angular.element(window.top.$('#upload.ng-scope')[0]).scope().isHashUnique({
-                sha256: result.sha256,
+//              window.top.angular.element(window.top.$('#upload.ng-scope')[0]).scope().isHashUnique({
+              $.ajax({
+                method: 'POST',
+                url: document.location.origin+'/api/Pictures/isHashUnique',
+                data: {
+                  sha256: result.sha256
+                 },
 
                 success: function(json){
                   if (json.error) {
