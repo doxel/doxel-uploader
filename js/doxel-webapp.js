@@ -1,7 +1,7 @@
 /*
  * doxel-webapp.js
  *
- * Copyright (c) 2015 ALSENET SA - http://doxel.org
+ * Copyright (c) 2015-2016 ALSENET SA - http://doxel.org
  * Please read <http://doxel.org/license> for more information.
  *
  * Author(s):
@@ -39,7 +39,7 @@ window.alert=function(message){
   return window.top.$.notify({
     message: message
   },  {
-    newest_on_top: true,                                                                                                           
+    newest_on_top: true,
   });
 }
 
@@ -144,7 +144,7 @@ var views={
       *
       */
       Error: function views_plupload_uploaderEvents_Error(uploader,error){
-        if (error.code!=-602) { // no alert here on duplicate file error
+        if (error.code!=-602) { // no alert here on client side duplicate file error
 
             if (error.response && String(error.response).match('jsonrpc')) {
               var response=JSON.parse(error.response);
@@ -153,9 +153,17 @@ var views={
 
                 if (response.error.original) {
                   console.log(response.error.original);
+
+                  // no alert on server side duplicate file error
+                  if (response.error.original.error.code==904) {
+                    ++uploader.file_duplicate_count;
+                    return;
+                  }
+
                 }
 
                 alert(response.error.message);
+                uploader.stop();
 
               } else {
                 console.log(arguments);
@@ -165,8 +173,8 @@ var views={
             } else {
               console.log(arguments);
               alert(error.message);
+              uploader.stop();
             }
-            uploader.stop();
         }
       },
 
@@ -183,7 +191,7 @@ var views={
       *
       */
       FilesAdded: function views_plupload_uploaderEvents_filesAdded(uploader,files){
-        if (uploader.file_duplicate_count) {
+        if (uploader.file_duplicate_count && uploader.state==plupload.STOPPED) {
             alert(uploader.file_duplicate_count+' duplicate file'+((uploader.file_duplicate_count>1)?'s were':' was')+' discarded.');
             uploader.file_duplicate_count=0;
         }
@@ -390,7 +398,6 @@ var views={
                 return;
               }
 
-//              window.top.angular.element(window.top.$('#upload.ng-scope')[0]).scope().isHashUnique({
               $.ajax({
                 method: 'POST',
                 url: document.location.origin+'/api/Pictures/isHashUnique',
@@ -399,38 +406,30 @@ var views={
                  },
 
                 success: function(json){
-                  if (json.error) {
-                    console.log(json.error);
-
-                    // stop if error is not "duplicate file"
-                    if (json.error.code!=904) {
-                      alert(json.error.message);
-                      uploader.stop();
-                      return;
-                    }
-
-                    // increment duplicate count
-                    ++uploader.file_duplicate_count;
-
-                    // mark as uploaded
-                    file.status=plupload.DONE;
-
-                    // remove DOM element
-                    var $file = $('#'+file.id);
-                    $file.remove();
-
-                    // upload next
-                    setTimeout(function() {
-                      plupload.uploadNext.call(uploader);
-                    }, 1);
-
-                    return;
-                  }
-
                   if (!json.result) {
                     alert('Could not check for file hash uniqueness');
                     uploader.stop();
                     return;
+
+                  } else {
+                    if (!json.result.unique) {
+                      // increment duplicate count
+                      ++uploader.file_duplicate_count;
+
+                      // mark as uploaded
+                      file.status=plupload.DONE;
+
+                      // remove DOM element
+                      var $file = $('#'+file.id);
+                      $file.remove();
+
+                      // upload next
+                      setTimeout(function() {
+                        plupload.uploadNext.call(uploader);
+                      }, 1);
+
+                      return;
+                    }
                   }
 
                   // check only once for brand/model in sensor database
@@ -494,8 +493,15 @@ var views={
                     file=newfile;
                   }
 
-                  // start upload
-                  plupload.onUploadFile.call(this,uploader,file);
+                  try {
+                    // start upload
+                    plupload.onUploadFile.call(this,uploader,file);
+
+                  } catch(e) {
+                    console.log(e);
+                    uploader.stop();
+                    alert(e.message);
+                  }
 
                 },
 
@@ -552,8 +558,19 @@ var views={
 
             if (response.error.original) {
               console.log(response.error.original);
-            }
 
+              if (response.error.original.message.match(/jsonrpc/)) {
+                var original=JSON.parse(response.error.original.message);
+                message=(original.error && original.error.message) || message
+
+                // no alert on server side duplicate file error
+                if (original.error && original.error.code==904) {
+                  $file.remove();
+                  ++uploader.file_duplicate_count;
+                  return;
+                }
+              }
+            }
 
           } else {
 
@@ -578,7 +595,6 @@ var views={
           }
 
           if (failed) {
-            // set file status icon
             file.status=plupload.FAILED;
             file._handleFileStatus(file);
 
