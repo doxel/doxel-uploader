@@ -34,9 +34,25 @@
  */
 
 var disable_fileUpdate=false;
+
+window.onbeforeunload = function() {
+  if (!window.UPLOADING) {
+    return null;
+  }
+  setTimeout(function(){
+    plupload.uploader.stop();
+    setTimeout(function(){
+      plupload.uploader.start();
+    });
+  });
+  return "Cancel the current upload ?";
+}
+
 window.alert=function(message){
+  window.top.alert(message);
+  return;
   console.trace('alert');
-  return window.top.$.notify({
+  return $.notify({
     message: message
   },  {
     newest_on_top: true,
@@ -235,11 +251,13 @@ var views={
 
         switch (uploader.state) {
             case plupload.STARTED:
+                window.UPLOADING=true;
                 // hide buttons during upload
                 $('.plupload_buttons .ui-widget', views.plupload.container).css('visibility','hidden');
                 break;
 
             case plupload.STOPPED:
+                window.UPLOADING=false;
                 // show buttons hidden during upload
                 $('.plupload_buttons .ui-widget', views.plupload.container).css('visibility','visible');
 
