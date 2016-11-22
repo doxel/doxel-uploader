@@ -1209,10 +1209,17 @@ function file_update(file,callback) {
 
     } else {
       console.log('no exif !');
-      callback({
-        jpeg: e.target.result,
-        sha256: asmCrypto.SHA256.hex(exifReader.getJpegData())
-      });
+      if (exifReader) {
+        callback({
+          jpeg: e.target.result,
+          sha256: asmCrypto.SHA256.hex(exifReader.getJpegData())
+        });
+      } else {
+        callback({
+          jpeg: e.target.result,
+          sha256: asmCrypto.SHA256.hex(e.target.result)
+        });
+      }
     }
   }
   reader.readAsBinaryString(file);
