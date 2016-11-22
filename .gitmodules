@@ -17,3 +17,6 @@
 [submodule "js/thirdparty/piexifjs"]
 	path = js/thirdparty/piexifjs
 	url = https://github.com/doxel/piexifjs.git
+[submodule "js/thirdparty/asmcrypto.js"]
+	path = js/thirdparty/asmcrypto.js
+	url = https://github.com/vibornoff/asmcrypto.js.git
